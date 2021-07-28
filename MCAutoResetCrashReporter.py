@@ -7,3 +7,4 @@ if __name__ == "__main__":
         ara.mainloop()
     except:
         traceback.print_exc()
+        input("Press enter to exit...")

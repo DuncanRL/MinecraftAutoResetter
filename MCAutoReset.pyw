@@ -4,13 +4,43 @@ import time
 from win32.win32gui import GetWindowText, GetForegroundWindow
 import tkinter.filedialog as tkFileDialog
 import tkinter.simpledialog as tkSimpleDialog
+import tkinter.messagebox as tkMessageBox
 import os
 import shutil
 import traceback
 from Entry import *
 from datetime import datetime
 
-arVersion = "v1.4.0"
+arVersion = "v1.5.0"
+
+macros = [
+    {
+        "name": "1.16",
+        "display": "1.16+ RSG",
+        "macro": "etswtttsnttsssttttts"
+    },
+    {
+        "name": "1.14",
+        "display": "1.14/1.15 RSG",
+        "macro": "etswttttstnttts"
+    },
+    {
+        "name": "1.14H",
+        "display": "1.14/1.15 HC RSG",
+        "macro": "etswttttstntstts"
+    },
+    {
+        "name": "1.16C",
+        "display": "1.16+ SRG",
+        "macro": "etswtttsntsstsssttttts"
+    },
+    {
+        "name": "1.16S",
+        "display": "1.16+ SSG",
+        "macro": "tstttsnttsssttttstttvtttttts",
+        "askSeed": True
+    }
+]
 
 
 def resource_path(relative_path):
@@ -25,7 +55,7 @@ def resource_path(relative_path):
 class AutoResetApp(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
-        self.title("Minecraft Auto Resetter "+arVersion)
+        self.title("MCAutoReset "+arVersion)
         self.resizable(0, 0)
 
         self.iconbitmap(resource_path("Logo.ico"))
@@ -39,40 +69,42 @@ class AutoResetApp(tk.Tk):
         self.optionsFrame.grid(row=1, column=0)
 
         self.directFrame = tk.LabelFrame(self.optionsFrame)
-        self.directFrame.grid(row=0, column=0, padx=5, pady=5, sticky="nw")
+        self.directFrame.grid(row=0, column=0, padx=5,
+                              pady=5, sticky="nw", rowspan=2)
 
         tk.Label(self.directFrame, text=".minecraft Directory:").grid(
-            row=0, column=0, padx=5, pady=5)
+            row=0, column=0, padx=5, pady=5, sticky="ew")
         self.dirLabel = tk.Label(
-            self.directFrame, text=self.path.replace(" ", " "), wraplength=100, justify="left")
-        self.dirLabel.grid(row=1, column=0, padx=5, pady=5)
+            self.directFrame, text=self.path.replace(" ", " "), wraplength=120, justify="left")
+        self.dirLabel.grid(row=1, column=0, padx=5,
+                           pady=5, sticky="ew")
         tk.Button(self.directFrame, command=self.setPathButton,
-                  text="Change Directory").grid(row=2, column=0, padx=5, pady=5)
+                  text="Change Directory").grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+        tk.Button(self.directFrame, command=self.autoPath,
+                  text="MultiMC Auto Detect").grid(row=3, column=0, padx=5, pady=5, sticky="ew")
 
         self.macroFrame = tk.LabelFrame(self.optionsFrame)
-        self.macroFrame.grid(row=0, column=1, padx=5, pady=5, sticky="nw")
+        self.macroFrame.grid(row=0, column=1, padx=5,
+                             pady=5, sticky="nws", rowspan=2)
 
         tk.Label(self.macroFrame, text="Current Macro:").grid(
             row=0, column=0, padx=5, pady=5)
-        self.macroLabel = tk.Label(self.macroFrame, text=self.version)
+        self.macroLabel = tk.Label(self.macroFrame, text="Loading...")
         self.macroLabel.grid(row=1, column=0, padx=5, pady=5)
 
         self.macroButtonFrame = tk.Frame(self.macroFrame)
         self.macroButtonFrame.grid(row=2, column=0, padx=5, pady=5)
 
-        tk.Button(self.macroButtonFrame, text="1.16+",
-                  command=self.set116, width=10).grid(row=0, column=0)
-        tk.Button(self.macroButtonFrame, text="1.16+ SSG",
-                  command=self.setSSG, width=10).grid(row=1, column=0)
-        tk.Button(self.macroButtonFrame, text="1.16+ SRG",
-                  command=self.setSRG, width=10).grid(row=2, column=0)
-        tk.Button(self.macroButtonFrame, text="1.14/1.15",
-                  command=self.set114, width=10).grid(row=3, column=0)
-        tk.Button(self.macroButtonFrame, text="1.14/1.15 HC",
-                  command=self.set114HC, width=10).grid(row=4, column=0)
+        row = 0
+        for i in macros:
+            macroName = i.get("name", "?")
+            tk.Button(self.macroButtonFrame, text=i.get("display"),
+                      command=self.getMacroButton(macroName)).grid(row=row, column=0, sticky="ew")
+            row += 1
 
         self.worldFrame = tk.LabelFrame(self.optionsFrame)
-        self.worldFrame.grid(row=0, column=2, padx=5, pady=5, sticky="nw")
+        self.worldFrame.grid(row=0, column=2, padx=5,
+                             pady=5, sticky="nw")
 
         tk.Label(self.worldFrame, text="World Deletion:").grid(
             row=0, column=0, padx=5, pady=5)
@@ -84,7 +116,8 @@ class AutoResetApp(tk.Tk):
                   text="Manage Safe\nWorlds").grid(row=2, column=0, padx=5, pady=5)
 
         self.delayFrame = tk.LabelFrame(self.optionsFrame)
-        self.delayFrame.grid(row=1, column=1, padx=5, pady=5, sticky="n")
+        self.delayFrame.grid(row=1, column=2, padx=5,
+                             pady=5, sticky="new")
 
         tk.Label(self.delayFrame, text="Delay after\nleaving world:").grid(
             row=0, column=0, padx=5, pady=5)
@@ -101,6 +134,7 @@ class AutoResetApp(tk.Tk):
                   command=self.setMaxDelay).grid(row=0, column=1)
 
         self.oldPath = ""
+        self.setMacro(self.version, True)
         self.after(0, self.loop)
 
     def setMaxDelay(self, x=0):
@@ -192,16 +226,6 @@ class AutoResetApp(tk.Tk):
         if self.state == -1:
             self.state = 0
 
-    def set116(self):
-        self.version = "1.16"
-        self.macroLabel.config(text=self.version)
-        self.save()
-
-    def setSRG(self):
-        self.version = "SRG"
-        self.macroLabel.config(text=self.version)
-        self.save()
-
     def deleteWorlds(self):
         savesPath = os.path.join(self.path, "saves")
         worlds = [i for i in os.listdir(savesPath) if (os.path.isfile(os.path.join(
@@ -212,21 +236,16 @@ class AutoResetApp(tk.Tk):
             for world in worlds[6:]:
                 shutil.rmtree(os.path.join(savesPath, world))
 
-    def set114(self):
-        self.version = "1.14/1.15"
-        self.macroLabel.config(text=self.version)
-        self.save()
+    def getMacroButton(self, macroName, cancelSeed=False):
+        return lambda: self.setMacro(macroName, cancelSeed)
 
-    def set114HC(self):
-        self.version = "1.14/1.15 HC"
-        self.macroLabel.config(text=self.version)
+    def setMacro(self, macroName, cancelSeed=False):
+        macro = self.getMacro(macroName)
+        self.version = macro.get("name", "?")
         self.save()
-
-    def setSSG(self):
-        self.version = "SSG"
-        self.macroLabel.config(text=self.version)
-        self.save()
-        self.setSeed()
+        self.macroLabel.config(text=macro.get("display", "Unknown Macro"))
+        if not cancelSeed and macro.get("askSeed", False):
+            self.setSeed()
 
     def setSeed(self):
         seed = self.askSeed()
@@ -253,6 +272,40 @@ class AutoResetApp(tk.Tk):
             return ans
         except:
             return ""
+
+    def autoPath(self):
+        try:
+            path = self.path.replace("\\", "/")
+            pathSplit = path.split("/")
+            instancesPath = ""
+
+            for i in pathSplit[:-2]:
+                instancesPath += i + "/"
+
+            if os.path.isfile(os.path.join(instancesPath, pathSplit[-2], "instance.cfg").replace("\\", "/")):
+                instances = [os.path.join(instancesPath, i, ".minecraft").replace("\\", "/") for i in os.listdir(
+                    instancesPath) if os.path.isfile(os.path.join(instancesPath, i, ".minecraft", "logs", "latest.log"))]
+
+                max = 0
+                chosen = None
+
+                for i in instances:
+                    latest = os.path.getmtime(os.path.join(
+                        i, "logs", "latest.log").replace("\\", "/"))
+                    if latest > max:
+                        max = latest
+                        chosen = i
+
+                if chosen is not None:
+                    self.setPath(chosen)
+
+            else:
+                tkMessageBox.showerror(
+                    "MCAutoReset: Error", "The current directory is not a MultiMC instance!\nSelect a MultiMC instance's .minecraft to use Auto Detect.")
+
+        except:
+            tkMessageBox.showerror(
+                "MCAutoReset: Error", "An error occured while trying to automatically detect directory:\n\n"+traceback.format_exc())
 
     def setPathButton(self):
         x = tkFileDialog.askdirectory()
@@ -304,22 +357,23 @@ class AutoResetApp(tk.Tk):
             oFile.write(self.path+"\n"+self.version+"\n" +
                         ("World Deletion = On" if self.worldVar.get() else "World Deletion = Off")+"\n"+str(self.maxDelay))
 
+    def getMacro(self, macro=None):
+        global macros
+        if macro is None:
+            macro = self.version
+        for i in macros:
+            if i.get("name", None) == macro:
+                return i
+                break
+
+        return macros[0]
+
     def runMacro(self):
         time.sleep(0.1)
         if WindowChecker.checkMainMenu():
-            steps = ""
-            if self.version == "1.16":
-                steps = "etswtttsnttsssttttts"
-            elif self.version == "1.14/1.15":
-                steps = "etswttttstnttts"
-            elif self.version == "1.14/1.15 HC":
-                steps = "etswttttstntstts"
-            elif self.version == "SRG":
-                steps = "etswtttsntsstsssttttts"
-            elif self.version == "SSG":
-                steps = "tstttsnttsssttttstttvtttttts"
+            steps = self.getMacro().get("macro", "")
             for i in steps:
-                if keyboard.is_pressed("\x1b") or keyboard.is_pressed("\t") or keyboard.is_pressed(" "):
+                if WindowChecker.checkMinecraft() and keyboard.is_pressed("\x1b") or keyboard.is_pressed("\t") or keyboard.is_pressed(" "):
                     print("Macro Canceled")
                     return
                 if i == "t":
@@ -344,7 +398,7 @@ class AutoResetApp(tk.Tk):
 
 
 class WindowChecker:
-    @staticmethod
+    @ staticmethod
     def checkMinecraft():
         window = GetWindowText(GetForegroundWindow()).lower()
         value = True
@@ -354,7 +408,7 @@ class WindowChecker:
                 break
         return value
 
-    @staticmethod
+    @ staticmethod
     def checkMainMenu():
         value = WindowChecker.checkMinecraft()
         if value:
@@ -365,7 +419,7 @@ class WindowChecker:
                     break
         return value
 
-    @staticmethod
+    @ staticmethod
     def checkInGame():
         value = not WindowChecker.checkMinecraft()
         if not value:
@@ -390,7 +444,8 @@ class SafetyManager(tk.Toplevel):
         self.worldFrame = tk.Frame(self)
         self.worldFrame.grid(row=0, column=0, padx=5, pady=5)
 
-        tk.Label(self.worldFrame, text="World Name:").grid(row=0, column=0)
+        tk.Label(self.worldFrame, text="World Name:").grid(
+            row=0, column=0)
         self.entry = tk.Entry(self.worldFrame, width=30)
         self.entry.grid(row=0, column=1)
         tk.Button(self.worldFrame, text="AutoFill",
@@ -408,17 +463,25 @@ class SafetyManager(tk.Toplevel):
         self.response.grid(row=2, column=0, padx=5, pady=5)
 
     def autocomplete(self):
-        words = [i.lower() for i in self.entry.get().rstrip().split()]
-        for world in os.listdir(os.path.join(self.parent.path, "saves")):
-            success = True
-            for word in words:
-                if word not in world.lower():
-                    success = False
+        ogWord = self.entry.get()
+        words = [i.lower() for i in ogWord.rstrip().split()]
+        savesList = os.listdir(os.path.join(self.parent.path, "saves"))
+        for world in savesList:
+            if world != ogWord:
+                success = True
+                for word in words:
+                    if word not in world.lower():
+                        success = False
+                        break
+                if success:
+                    self.entry.delete(0, 'end')
+                    self.entry.insert(0, world)
                     break
-            if success:
-                self.entry.delete(0, 'end')
-                self.entry.insert(0, world)
-                break
+            else:
+                words = []
+                if world == savesList[-1]:
+                    self.entry.delete(0, len(ogWord))
+                    self.autocomplete()
 
     def getEnter(self):
         entry = self.entry.get().rstrip()
